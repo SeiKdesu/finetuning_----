@@ -11,7 +11,7 @@ data_dir = './data'  # データセットのディレクトリパス
 batch_size = 512
 num_classes = 8
 input_size = (128, 128)
-num_epochs = 20
+num_epochs = 2
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2. データセットの前処理
@@ -157,8 +157,52 @@ plot_history(history)
 
 
 # モデルの学習
-model = train_model(model, dataloaders, criterion, optimizer, num_epochs)
+# model = train_model(model, dataloaders, criterion, optimizer, num_epochs)
 
 # # モデルの保存
 # torch.save(model.state_dict(), "vgg16_transfer_learning.pth")
 # print("Model saved!")
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+# 混同行列を計算する関数
+def evaluate_model(model, dataloader, class_names):
+    model.eval()  # 評価モードに設定
+    all_labels = []
+    all_preds = []
+
+    # 全てのデータを予測
+    with torch.no_grad():
+        for inputs, labels in dataloader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            _, preds = torch.max(outputs, 1)
+            all_labels.extend(labels.cpu().numpy())
+            all_preds.extend(preds.cpu().numpy())
+
+    # 混同行列を計算
+    cm = confusion_matrix(all_labels, all_preds)
+    
+    # クラスごとの正解率を計算
+    class_accuracy = cm.diagonal() / cm.sum(axis=1)
+    print("Class-wise Accuracy:")
+    for i, acc in enumerate(class_accuracy):
+        print(f"Class {class_names[i]}: {acc:.2f}")
+    
+    return cm, class_accuracy
+
+# 混同行列をプロットする関数
+def plot_confusion_matrix(cm, class_names):
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    disp.plot(ax=ax, cmap="Blues", colorbar=True)
+    plt.title("Confusion Matrix")
+    plt.savefig('matrix.png')
+
+# クラス名を取得 (ImageFolderのクラス順に対応)
+class_names = datasets["train"].classes
+
+# 検証データで混同行列を生成
+cm, class_accuracy = evaluate_model(model, dataloaders["val"], class_names)
+
+# 混同行列をプロット
+plot_confusion_matrix(cm, class_names)
