@@ -8,10 +8,10 @@ import time
 
 # 1. データセットのパスとパラメータ設定
 data_dir = './data'  # データセットのディレクトリパス
-batch_size = 32
+batch_size = 512
 num_classes = 8
 input_size = (128, 128)
-num_epochs = 10
+num_epochs = 20
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2. データセットの前処理
@@ -45,24 +45,35 @@ for param in model.features.parameters():
     param.requires_grad = False  # 既存の特徴抽出部分は学習しない
 
 # クラス分類用の全結合層をカスタマイズ
-model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
+# model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
+# 全結合層 (classifier) にドロップアウトを追加
+model.classifier = nn.Sequential(
+    nn.Linear(model.classifier[0].in_features, 4096),
+    nn.ReLU(),
+    nn.Dropout(0.5),  # ドロップアウトを追加
+    nn.Linear(4096, 4096),
+    nn.ReLU(),
+    nn.Dropout(0.5),  # ドロップアウトを追加
+    nn.Linear(4096, num_classes)
+)
 model = model.to(device)
 
 # 5. 損失関数と最適化手法
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.classifier.parameters(), lr=0.001)
+optimizer = optim.Adam(model.classifier.parameters(), lr=0.001, weight_decay=1e-4)  # L2正則化
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)  # 学習率スケジューリング
 
-# 6. 学習と評価
-def train_model(model, dataloaders, criterion, optimizer, num_epochs):
+# 4. 学習と評価関数にスケジューラを組み込み
+def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs):
     since = time.time()
     best_model_wts = model.state_dict()
     best_acc = 0.0
+    history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
 
     for epoch in range(num_epochs):
         print(f"Epoch {epoch+1}/{num_epochs}")
         print("-" * 10)
 
-        # 各エポックでの学習と評価
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()
@@ -74,7 +85,6 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs):
 
             for inputs, labels in dataloaders[phase]:
                 inputs, labels = inputs.to(device), labels.to(device)
-
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -92,9 +102,16 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs):
             epoch_loss = running_loss / len(datasets[phase])
             epoch_acc = running_corrects.double() / len(datasets[phase])
 
+            if phase == "train":
+                scheduler.step()  # 学習率スケジューリング
+                history["train_loss"].append(epoch_loss)
+                history["train_acc"].append(epoch_acc.item())
+            else:
+                history["val_loss"].append(epoch_loss)
+                history["val_acc"].append(epoch_acc.item())
+
             print(f"{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}")
 
-            # モデルのベストウェイトを保存
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = model.state_dict()
@@ -104,11 +121,44 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs):
     print(f"Best val Acc: {best_acc:.4f}")
 
     model.load_state_dict(best_model_wts)
-    return model
+    return model, history
+
+# 修正した学習関数を実行
+model, history = train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs)
+
+# 7. 学習履歴の可視化
+def plot_history(history):
+    epochs = range(1, len(history["train_loss"]) + 1)
+
+    # 損失のグラフ
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, history["train_loss"], label="Train Loss")
+    plt.plot(epochs, history["val_loss"], label="Validation Loss")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Loss over Epochs")
+    plt.legend()
+
+    # 正解率のグラフ
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, history["train_acc"], label="Train Accuracy")
+    plt.plot(epochs, history["val_acc"], label="Validation Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.title("Accuracy over Epochs")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig('loss_acc.png')
+
+# 学習履歴のプロット
+plot_history(history)
+
 
 # モデルの学習
 model = train_model(model, dataloaders, criterion, optimizer, num_epochs)
 
-# モデルの保存
-torch.save(model.state_dict(), "vgg16_transfer_learning.pth")
-print("Model saved!")
+# # モデルの保存
+# torch.save(model.state_dict(), "vgg16_transfer_learning.pth")
+# print("Model saved!")
