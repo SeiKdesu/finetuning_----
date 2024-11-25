@@ -41,6 +41,7 @@ dataloaders = {
 
 # 4. VGGモデルのロードと転移学習の設定
 model = models.vgg16(pretrained=True)
+
 for param in model.features.parameters():
     param.requires_grad = False  # 既存の特徴抽出部分は学習しない
 
@@ -54,10 +55,11 @@ model.classifier = nn.Sequential(
     nn.Linear(4096, 4096),
     nn.ReLU(),
     nn.Dropout(0.5),  # ドロップアウトを追加
-    nn.Linear(4096, num_classes)
+    nn.Linear(4096, num_classes),
+    nn.Softmax(dim=1)  # 出力層にSoftmaxを追加
 )
 model = model.to(device)
-
+print(model)
 # 5. 損失関数と最適化手法
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.classifier.parameters(), lr=0.001, weight_decay=1e-4)  # L2正則化
