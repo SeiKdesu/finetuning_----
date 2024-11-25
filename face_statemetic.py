@@ -11,7 +11,7 @@ data_dir = './data'  # データセットのディレクトリパス
 batch_size = 512
 num_classes = 8
 input_size = (128, 128)
-num_epochs = 150
+num_epochs = 20
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2. データセットの前処理
@@ -20,12 +20,12 @@ transform = {
         transforms.Resize(input_size),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        transforms.Normalize([0.5], [0.5])
     ]),
     "val": transforms.Compose([
         transforms.Resize(input_size),
         transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        transforms.Normalize([0.5], [0.5])
     ]),
 }
 
@@ -56,14 +56,14 @@ model.classifier = nn.Sequential(
     nn.ReLU(),
     nn.Dropout(0.5),  # ドロップアウトを追加
     nn.Linear(4096, num_classes),
-    nn.Softmax(dim=1)  # 出力層にSoftmaxを追加
+    # nn.Softmax(dim=1)  # 出力層にSoftmaxを追加
 )
 model = model.to(device)
 print(model)
 # 5. 損失関数と最適化手法
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.classifier.parameters(), lr=0.001, weight_decay=1e-4)  # L2正則化
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)  # 学習率スケジューリング
+optimizer = optim.Adam(model.classifier.parameters(), lr=0.01, weight_decay=1e-4)  # L2正則化
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0)  # 学習率スケジューリング
 
 # 4. 学習と評価関数にスケジューラを組み込み
 def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs):
@@ -97,7 +97,6 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs)
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
-
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
@@ -118,6 +117,8 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs)
                 best_acc = epoch_acc
                 best_model_wts = model.state_dict()
 
+
+
     time_elapsed = time.time() - since
     print(f"Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s")
     print(f"Best val Acc: {best_acc:.4f}")
@@ -134,7 +135,7 @@ def plot_history(history):
 
     # 損失のグラフ
     plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 2, 2)
     plt.plot(epochs, history["train_loss"], label="Train Loss")
     plt.plot(epochs, history["val_loss"], label="Validation Loss")
     plt.xlabel("Epochs")
@@ -143,7 +144,7 @@ def plot_history(history):
     plt.legend()
 
     # 正解率のグラフ
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 2, 1)
     plt.plot(epochs, history["train_acc"], label="Train Accuracy")
     plt.plot(epochs, history["val_acc"], label="Validation Accuracy")
     plt.xlabel("Epochs")
