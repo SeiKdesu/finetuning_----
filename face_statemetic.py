@@ -11,7 +11,7 @@ data_dir = './data'  # データセットのディレクトリパス
 batch_size = 512
 num_classes = 8
 input_size = (128, 128)
-num_epochs = 20
+num_epochs = 150
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 2. データセットの前処理
