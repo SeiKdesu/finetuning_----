@@ -1,9 +1,10 @@
 # 事例研究
 
-・loss_acc_150.png, matrix_150.png　→学習率が小さすぎた　（昨日）
-・los_acc_final_11_26.png,matrix_final_11_26.png →今日（学習がうまく進んでいないかもだけれど、たぶんもっと学習率とか、最適化手法を検討する必要があったのかも）　うまくはできませんでした。すいません。
+・ loss_acc_150.png, matrix_150.png　→学習率が小さすぎた　（昨日）
 
-・face_loss.pdf,face_top1_acc.pdf,face_cofusion_matrix.pdf →vggではなく、resnetに変えたもの。　（昨日岡山くんがみせてくれたもの。）
+・ los_acc_final_11_26.png,matrix_final_11_26.png →今日（学習がうまく進んでいないかもだけれど、たぶんもっと学習率とか、最適化手法を検討する必要があったのかも）　うまくはできませんでした。すいません。
+
+・ face_loss.pdf,face_top1_acc.pdf,face_cofusion_matrix.pdf →vggではなく、resnetに変えたもの。　（昨日岡山くんがみせてくれたもの。）
 
 どれが完全にうまくいったわけではない感じです。すいません。
 
